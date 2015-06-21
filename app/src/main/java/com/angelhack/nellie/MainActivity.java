@@ -2,6 +2,7 @@ package com.angelhack.nellie;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
@@ -27,6 +28,10 @@ import com.getpebble.android.kit.util.PebbleDictionary;
 import com.kairos.Kairos;
 import com.kairos.KairosListener;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -35,6 +40,8 @@ import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 public class MainActivity extends Activity implements SurfaceHolder.Callback {
@@ -48,10 +55,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     File mCurrentPhotoPath;
     Kairos myKairos;
     KairosListener listener;
+    HashMap<String, File> savedPeople;
 
     /** End New **/
 
     private static final String GALLERY_ID = "NELLIE";
+    private static int clickCount = 0;
 
     private PebbleKit.PebbleDataReceiver mReceiver;
     private UUID appUUID = UUID.fromString("036b24a1-7fa5-4acc-aef1-76296ab4d984");
@@ -114,7 +123,30 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
 
                 @Override
                 public void onSuccess(String response) {
-                    Log.d("KAIROS DEMO SUCCESS", response);
+
+                        Log.d("KAIROS DEMO SUCCESS", response);
+                        if (response.contains("5002")) {
+                            // No face detected or first pebble click.
+                            if (clickCount >= 2) {
+                                captureImage();
+                                clickCount = 1;
+                            }
+                        }
+                        else if (response.contains("candidates")) {
+                            // Person is recognised!
+                            String name = response.substring(response.indexOf("subject") + 10, response.indexOf("\",\"width"));
+                            Log.d("NAME FOUND", name);
+                        }
+                        else if (response.contains("No match found")) {
+                            if (clickCount >= 2) {
+                                captureImage();
+                                clickCount = 1;
+                            }
+                        }
+                        else {
+                            // new person recognised
+
+                        }
                 }
 
                 @Override
@@ -141,6 +173,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                 // Handle Exception
             }
         }
+
+        if (savedPeople == null) {
+            savedPeople = new HashMap<String, File>();
+        }
     }
 
     /** New **/
@@ -159,13 +195,16 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         camera.takePicture(null, null, jpegCallback);
         try {
             Bitmap image = BitmapFactory.decodeFile(mCurrentPhotoPath.getAbsolutePath());
-            if (getResources().getConfiguration().orientation == getResources().getConfiguration().ORIENTATION_PORTRAIT) {
+            if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) {
+                Toast.makeText(getApplicationContext(), "In portrait", Toast.LENGTH_LONG).show();
                 Matrix matrix = new Matrix();
                 matrix.postRotate(90);
-                Bitmap rotatedBitmap = Bitmap.createBitmap(image, 0, 0, image.getWidth(), image.getHeight(), matrix, true);
+                Bitmap scaledBitmap = Bitmap.createScaledBitmap(image,image.getWidth(),image.getHeight(),true);
+                Bitmap rotatedBitmap = Bitmap.createBitmap(scaledBitmap, 0, 0, image.getWidth(), image.getHeight(), matrix, true);
                 return rotatedBitmap;
             }
             else {
+                Toast.makeText(getApplicationContext(), "In landscape", Toast.LENGTH_LONG).show();
                 return image;
             }
         } catch (Exception e) {
@@ -201,6 +240,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         try {
             camera.setPreviewDisplay(surfaceHolder);
             camera.startPreview();
+            startFaceDetection();
         } catch (Exception e) {
 
         }
@@ -212,11 +252,23 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         refreshCamera();
     }
 
+    public void startFaceDetection(){
+        // Try starting Face Detection
+        Camera.Parameters params = camera.getParameters();
+
+        // start face detection only *after* preview has started
+        if (params.getMaxNumDetectedFaces() > 0){
+            // camera supports face detection, so can start it:
+            camera.startFaceDetection();
+        }
+    }
+
     public void surfaceCreated(SurfaceHolder holder) {
         try {
             // open the camera
 
             camera = Camera.open();
+            camera.setFaceDetectionListener(new MyFaceDetectionListener());
 
         } catch (Exception e) {
             // check for exceptions
@@ -312,10 +364,11 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
 
                     switch (button) {
                         case BUTTON_EVENT_UP:
-                            //startActivity(new Intent(getApplicationContext(), PictureAction.class));
+                            ++clickCount;
                             captureImage();
                             break;
                         case BUTTON_EVENT_DOWN:
+                            ++clickCount;
                             recallImage();
                             break;
                         case BUTTON_EVENT_SELECT:
