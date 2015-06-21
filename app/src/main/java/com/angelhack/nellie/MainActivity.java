@@ -8,6 +8,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.hardware.Camera;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
@@ -56,6 +57,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     Kairos myKairos;
     KairosListener listener;
     HashMap<String, File> savedPeople;
+    boolean searchInProgress = false;
 
     /** End New **/
 
@@ -129,7 +131,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                         if (response.contains("5002")) {
                             // No face detected or first pebble click.
                             PebbleDictionary dict = new PebbleDictionary();
-                            dict.addString(5, "No Face Located");
+                            dict.addString(5, "No Face Seen");
                             PebbleKit.sendDataToPebble(getApplicationContext(), appUUID, dict);
                         }
                         else if (response.contains("candidates")) {
@@ -154,6 +156,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                             dict.addString(5, currentName + "Added");
                             PebbleKit.sendDataToPebble(getApplicationContext(), appUUID, dict);
                         }
+                    searchInProgress = false;
                 }
 
                 @Override
@@ -188,6 +191,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
 
     /** New **/
     public void captureImage() {
+        searchInProgress = true;
         try {
             Bitmap image = takePicture();
             currentName = "Acquaintance Name";
@@ -217,6 +221,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     }
 
     public void recallImage() {
+        searchInProgress = true;
         try {
             Bitmap image = takePicture();
             myKairos.recognize(image, GALLERY_ID, null, null, null, null, listener);
@@ -380,7 +385,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                     }
 
                     PebbleDictionary dict = new PebbleDictionary();
-                    dict.addString(2, "Press To Begin");
+                    if (!searchInProgress) {
+                        dict.addString(2, "Press To Scan");
+                    }
+                    else {
+                        dict.addString(2, "Please wait");
+                    }
                     PebbleKit.sendDataToPebble(context, appUUID, dict);
 
                 }
