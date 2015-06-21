@@ -128,10 +128,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                         Log.d("KAIROS DEMO SUCCESS", response);
                         if (response.contains("5002")) {
                             // No face detected or first pebble click.
-                            /*if (clickCount >= 2) {
-                                captureImage();
-                                clickCount = 1;
-                            }*/
+                            PebbleDictionary dict = new PebbleDictionary();
+                            dict.addString(5, "No Face Located");
+                            PebbleKit.sendDataToPebble(getApplicationContext(), appUUID, dict);
                         }
                         else if (response.contains("candidates")) {
                             // Person is recognised!
@@ -142,14 +141,18 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                             PebbleKit.sendDataToPebble(getApplicationContext(), appUUID, dict);
                         }
                         else if (response.contains("No match found")) {
-                            /*if (clickCount >= 2) {
-                                captureImage();
-                                clickCount = 1;
-                            }*/
+                            // found face but did not recognise
+                            PebbleDictionary dict = new PebbleDictionary();
+                            dict.addString(5, "Face Not Known");
+                            PebbleKit.sendDataToPebble(getApplicationContext(), appUUID, dict);
+
                         }
                         else {
                             // new person recognised
                             savedPeople.put(currentName, mCurrentPhotoPath);
+                            PebbleDictionary dict = new PebbleDictionary();
+                            dict.addString(5, currentName + "Added");
+                            PebbleKit.sendDataToPebble(getApplicationContext(), appUUID, dict);
                         }
                 }
 
@@ -377,7 +380,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                     }
 
                     PebbleDictionary dict = new PebbleDictionary();
-                    dict.addString(5, "Samantha");
+                    dict.addString(2, "Press To Begin");
                     PebbleKit.sendDataToPebble(context, appUUID, dict);
 
                 }
