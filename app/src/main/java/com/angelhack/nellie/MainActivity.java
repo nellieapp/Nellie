@@ -2,6 +2,8 @@ package com.angelhack.nellie;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.hardware.Camera;
 import android.net.Uri;
 import android.os.Bundle;
@@ -18,11 +20,14 @@ import android.widget.Toast;
 
 import com.getpebble.android.kit.PebbleKit;
 import com.getpebble.android.kit.util.PebbleDictionary;
+import com.kairos.Kairos;
+import com.kairos.KairosListener;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.UUID;
@@ -93,6 +98,38 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         };
         /** End New **/
 
+        // listener
+        KairosListener listener = new KairosListener() {
+
+            @Override
+            public void onSuccess(String response) {
+                Log.d("KAIROS DEMO SUCCESS", response);
+            }
+
+            @Override
+            public void onFail(String response) {
+                Log.d("KAIROS DEMO FAIL", response);
+            }
+        };
+
+
+        /* * * instantiate a new kairos instance * * */
+        Kairos myKairos = new Kairos();
+
+        /* * * set authentication * * */
+        String app_id = "de2652f9";
+        String api_key = "c4754c1ec92893a25918db365bb82f1e";
+        myKairos.setAuthentication(this, app_id, api_key);
+
+        try {
+            myKairos.listGalleries(listener);
+            Bitmap image = BitmapFactory.decodeFile(mCurrentPhotoPath.getAbsolutePath());
+            String subjectId = "Acquaintance Name";
+            String galleryId = "nellie";
+            myKairos.enroll(image, subjectId, galleryId, null, null, null, listener);
+        } catch (Exception e) {
+            // Handle Exceptions
+        }
     }
 
     /** New **/
