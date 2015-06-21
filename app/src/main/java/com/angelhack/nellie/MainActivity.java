@@ -4,17 +4,21 @@ import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
 import android.hardware.Camera;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
+import android.view.Display;
 import android.view.Menu;
 import android.view.MenuItem;
 
 import android.content.Context;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.WindowManager;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -28,6 +32,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.UUID;
@@ -41,7 +46,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
 
     Camera.PictureCallback jpegCallback;
     File mCurrentPhotoPath;
+    Kairos myKairos;
+    KairosListener listener;
+
     /** End New **/
+
+    private static final String GALLERY_ID = "NELLIE";
 
     private PebbleKit.PebbleDataReceiver mReceiver;
     private UUID appUUID = UUID.fromString("036b24a1-7fa5-4acc-aef1-76296ab4d984");
@@ -99,42 +109,77 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         /** End New **/
 
         // listener
-        KairosListener listener = new KairosListener() {
+        if (listener == null) {
+            listener = new KairosListener() {
 
-            @Override
-            public void onSuccess(String response) {
-                Log.d("KAIROS DEMO SUCCESS", response);
-            }
+                @Override
+                public void onSuccess(String response) {
+                    Log.d("KAIROS DEMO SUCCESS", response);
+                }
 
-            @Override
-            public void onFail(String response) {
-                Log.d("KAIROS DEMO FAIL", response);
-            }
-        };
+                @Override
+                public void onFail(String response) {
+                    Log.d("KAIROS DEMO FAIL", response);
+                }
+            };
+        }
 
 
         /* * * instantiate a new kairos instance * * */
-        Kairos myKairos = new Kairos();
+        if (myKairos == null) {
 
-        /* * * set authentication * * */
-        String app_id = "de2652f9";
-        String api_key = "c4754c1ec92893a25918db365bb82f1e";
-        myKairos.setAuthentication(this, app_id, api_key);
+            myKairos = new Kairos();
 
-        try {
-            myKairos.listGalleries(listener);
-            Bitmap image = BitmapFactory.decodeFile(mCurrentPhotoPath.getAbsolutePath());
-            String subjectId = "Acquaintance Name";
-            String galleryId = "nellie";
-            myKairos.enroll(image, subjectId, galleryId, null, null, null, listener);
-        } catch (Exception e) {
-            // Handle Exceptions
+            /* * * set authentication * * */
+            String app_id = "de2652f9";
+            String api_key = "c4754c1ec92893a25918db365bb82f1e";
+            myKairos.setAuthentication(this, app_id, api_key);
+
+            try {
+                myKairos.listGalleries(listener);
+            } catch (Exception e) {
+                // Handle Exception
+            }
         }
     }
 
     /** New **/
     public void captureImage() {
+        try {
+            Bitmap image = takePicture();
+            String subjectId = "Acquaintance Name";
+            myKairos.enroll(image, subjectId, GALLERY_ID, null, null, null, listener);
+            Toast.makeText(getApplicationContext(), mCurrentPhotoPath.getAbsolutePath() + " enrolled successfully", Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            // Handle Exceptions
+        }
+    }
+
+    public Bitmap takePicture() {
         camera.takePicture(null, null, jpegCallback);
+        try {
+            Bitmap image = BitmapFactory.decodeFile(mCurrentPhotoPath.getAbsolutePath());
+            if (getResources().getConfiguration().orientation == getResources().getConfiguration().ORIENTATION_PORTRAIT) {
+                Matrix matrix = new Matrix();
+                matrix.postRotate(90);
+                Bitmap rotatedBitmap = Bitmap.createBitmap(image, 0, 0, image.getWidth(), image.getHeight(), matrix, true);
+                return rotatedBitmap;
+            }
+            else {
+                return image;
+            }
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public void recallImage() {
+        try {
+            Bitmap image = takePicture();
+            myKairos.recognize(image, GALLERY_ID, null, null, null, null, listener);
+        } catch (Exception e) {
+            // Handle Exception
+        }
     }
 
     public void refreshCamera() {
@@ -170,18 +215,17 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     public void surfaceCreated(SurfaceHolder holder) {
         try {
             // open the camera
+
             camera = Camera.open();
-        } catch (RuntimeException e) {
+
+        } catch (Exception e) {
             // check for exceptions
             System.err.println(e);
             return;
         }
-        Camera.Parameters param;
+        /*Camera.Parameters param;
         param = camera.getParameters();
-
-        // modify parameter
-        param.setPreviewSize(352, 288);
-        camera.setParameters(param);
+        camera.setParameters(param);*/
         try {
             // The Surface has been created, now tell the camera where to draw
             // the preview.
@@ -272,6 +316,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                             captureImage();
                             break;
                         case BUTTON_EVENT_DOWN:
+                            recallImage();
                             break;
                         case BUTTON_EVENT_SELECT:
                             break;
