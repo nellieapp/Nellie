@@ -23,9 +23,8 @@
             </intent-filter>
         </activity>
         <activity
-            android:name="com.angelhack.nellie.PictureAction"
-            android:screenOrientation="landscape" >
-           </activity>
+            android:name="com.angelhack.nellie.PictureAction" >
+       </activity>
     </application>
 
 </manifest>
