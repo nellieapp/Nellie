@@ -17,12 +17,32 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
+    packagingOptions {
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/license.txt'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/NOTICE.txt'
+        exclude 'META-INF/notice.txt'
+        exclude 'META-INF/ASL2.0'
+    }
 }
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
     compile 'com.getpebble:pebblekit:3.0.0'
     compile files('libs/KairosSDK.jar')
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+
+    compile('org.apache.httpcomponents:httpmime:4.3.5') {
+        exclude module: "httpclient"
+    }
+    compile('org.apache.httpcomponents:httpcore:4.4.1') {
+        exclude module: "httpclient"
+    }
+    compile('org.apache.httpcomponents:httpclient:4.3.5')
 }
 
 repositories {
