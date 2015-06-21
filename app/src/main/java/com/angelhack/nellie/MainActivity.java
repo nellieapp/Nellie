@@ -59,8 +59,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
 
     /** End New **/
 
-    private static final String GALLERY_ID = "NELLIE";
+    private static final String GALLERY_ID = "NELLIEA";
     private static int clickCount = 0;
+    private String currentName = "";
 
     private PebbleKit.PebbleDataReceiver mReceiver;
     private UUID appUUID = UUID.fromString("036b24a1-7fa5-4acc-aef1-76296ab4d984");
@@ -127,25 +128,31 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                         Log.d("KAIROS DEMO SUCCESS", response);
                         if (response.contains("5002")) {
                             // No face detected or first pebble click.
-                            if (clickCount >= 2) {
-                                captureImage();
-                                clickCount = 1;
-                            }
+                            PebbleDictionary dict = new PebbleDictionary();
+                            dict.addString(5, "No Face Located");
+                            PebbleKit.sendDataToPebble(getApplicationContext(), appUUID, dict);
                         }
                         else if (response.contains("candidates")) {
                             // Person is recognised!
                             String name = response.substring(response.indexOf("subject") + 10, response.indexOf("\",\"width"));
                             Log.d("NAME FOUND", name);
+                            PebbleDictionary dict = new PebbleDictionary();
+                            dict.addString(5, name);
+                            PebbleKit.sendDataToPebble(getApplicationContext(), appUUID, dict);
                         }
                         else if (response.contains("No match found")) {
-                            if (clickCount >= 2) {
-                                captureImage();
-                                clickCount = 1;
-                            }
+                            // found face but did not recognise
+                            PebbleDictionary dict = new PebbleDictionary();
+                            dict.addString(5, "Face Not Known");
+                            PebbleKit.sendDataToPebble(getApplicationContext(), appUUID, dict);
+
                         }
                         else {
                             // new person recognised
-
+                            savedPeople.put(currentName, mCurrentPhotoPath);
+                            PebbleDictionary dict = new PebbleDictionary();
+                            dict.addString(5, currentName + "Added");
+                            PebbleKit.sendDataToPebble(getApplicationContext(), appUUID, dict);
                         }
                 }
 
@@ -183,9 +190,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     public void captureImage() {
         try {
             Bitmap image = takePicture();
-            String subjectId = "Acquaintance Name";
-            myKairos.enroll(image, subjectId, GALLERY_ID, null, null, null, listener);
-            Toast.makeText(getApplicationContext(), mCurrentPhotoPath.getAbsolutePath() + " enrolled successfully", Toast.LENGTH_LONG).show();
+            currentName = "Acquaintance Name";
+            myKairos.enroll(image, currentName, GALLERY_ID, null, null, null, listener);
         } catch (Exception e) {
             // Handle Exceptions
         }
@@ -196,7 +202,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         try {
             Bitmap image = BitmapFactory.decodeFile(mCurrentPhotoPath.getAbsolutePath());
             if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) {
-                Toast.makeText(getApplicationContext(), "In portrait", Toast.LENGTH_LONG).show();
                 Matrix matrix = new Matrix();
                 matrix.postRotate(90);
                 Bitmap scaledBitmap = Bitmap.createScaledBitmap(image,image.getWidth(),image.getHeight(),true);
@@ -204,7 +209,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                 return rotatedBitmap;
             }
             else {
-                Toast.makeText(getApplicationContext(), "In landscape", Toast.LENGTH_LONG).show();
                 return image;
             }
         } catch (Exception e) {
@@ -376,7 +380,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                     }
 
                     PebbleDictionary dict = new PebbleDictionary();
-                    dict.addString(5, "Samantha");
+                    dict.addString(2, "Press To Begin");
                     PebbleKit.sendDataToPebble(context, appUUID, dict);
 
                 }

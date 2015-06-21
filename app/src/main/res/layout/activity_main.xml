@@ -4,7 +4,9 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    tools:context="com.angelhack.nellie.MainActivity" >
+    android:background="@drawable/screen"
+    tools:context="com.angelhack.nellie.MainActivity"
+    android:paddingBottom="100dp">
 
     <SurfaceView
         android:id="@+id/surfaceView"
