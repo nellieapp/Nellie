@@ -7,6 +7,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.hardware.Camera;
+import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -21,6 +22,7 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -29,6 +31,15 @@ import com.getpebble.android.kit.util.PebbleDictionary;
 import com.kairos.Kairos;
 import com.kairos.KairosListener;
 
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.entity.mime.content.FileBody;
+import org.apache.http.entity.mime.content.StringBody;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -58,10 +69,11 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     KairosListener listener;
     HashMap<String, File> savedPeople;
     boolean searchInProgress = false;
+    boolean recordingInProgress = false;
 
     /** End New **/
 
-    private static final String GALLERY_ID = "NELLIEA";
+    private static final String GALLERY_ID = "NELLIEAPP";
     private static int clickCount = 0;
     private String currentName = "";
 
@@ -164,6 +176,15 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                     Log.d("KAIROS DEMO FAIL", response);
                 }
             };
+
+            outputFile = Environment.getExternalStorageDirectory().getAbsolutePath() + "/recording.3gp";
+
+            myAudioRecorder = new MediaRecorder();
+            myAudioRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            myAudioRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
+            myAudioRecorder.setAudioEncoder(MediaRecorder.OutputFormat.AMR_NB);
+            myAudioRecorder.setOutputFile(outputFile);
+
         }
 
 
@@ -173,8 +194,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
             myKairos = new Kairos();
 
             /* * * set authentication * * */
-            String app_id = "de2652f9";
-            String api_key = "c4754c1ec92893a25918db365bb82f1e";
+            String app_id = "6a6d7d29";
+            String api_key = "50bfcfa358d7505f87c02a3d22d21ab0";
             myKairos.setAuthentication(this, app_id, api_key);
 
             try {
@@ -191,10 +212,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
 
     /** New **/
     public void captureImage() {
-        searchInProgress = true;
         try {
             Bitmap image = takePicture();
-            currentName = "Acquaintance Name";
             myKairos.enroll(image, currentName, GALLERY_ID, null, null, null, listener);
         } catch (Exception e) {
             // Handle Exceptions
@@ -221,7 +240,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     }
 
     public void recallImage() {
-        searchInProgress = true;
         try {
             Bitmap image = takePicture();
             myKairos.recognize(image, GALLERY_ID, null, null, null, null, listener);
@@ -381,16 +399,34 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                             recallImage();
                             break;
                         case BUTTON_EVENT_SELECT:
+                            if(!recordingInProgress) {
+                                recordingInProgress = true;
+                                try {
+                                    myAudioRecorder.prepare();
+                                    myAudioRecorder.start();
+                                } catch (IllegalStateException e) {
+                                    // TODO Auto-generated catch block
+                                    e.printStackTrace();
+                                } catch (IOException e) {
+                                    // TODO Auto-generated catch block
+                                    e.printStackTrace();
+                                }
+                            }
+                            else {
+                                recordingInProgress = false;
+                                myAudioRecorder.stop();
+                                myAudioRecorder.release();
+                                myAudioRecorder = null;
+
+                                if(outputFile != null) {
+                                    new UploadToApiTask().execute(speechUrl);
+                                }
+                            }
                             break;
                     }
 
                     PebbleDictionary dict = new PebbleDictionary();
-                    if (!searchInProgress) {
                         dict.addString(2, "Press To Scan");
-                    }
-                    else {
-                        dict.addString(2, "Please wait");
-                    }
                     PebbleKit.sendDataToPebble(context, appUUID, dict);
 
                 }
@@ -409,4 +445,103 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     }
 
 
+    private MediaRecorder myAudioRecorder;
+    private String outputFile = null;
+    private static String apikey = "d9093dd5-c73b-4494-927b-10b0f7fe36f0";
+    private static String speechUrl = "https://api.idolondemand.com/1/api/async/recognizespeech/v1";
+    private static String jobUrl = "https://api.idolondemand.com/1/job/result/";
+    private static String nameUrl = "https://api.idolondemand.com/1/api/sync/extractentities/v1";
+
+
+    private class UploadToApiTask extends AsyncTask<String, Integer, String> {
+
+        protected String doInBackground(String... urls) {
+            MultipartEntityBuilder speechEntity = MultipartEntityBuilder.create();
+            speechEntity.addPart("file", new FileBody(new File(outputFile)));
+            speechEntity.addPart("apikey", new StringBody(apikey, ContentType.TEXT_PLAIN));
+            speechEntity.addPart("language", new StringBody("en-GB", ContentType.TEXT_PLAIN));
+            HttpEntity speechEntities = speechEntity.build();
+
+            MultipartEntityBuilder jobEntity = MultipartEntityBuilder.create();
+            jobEntity.addPart("apikey", new StringBody(apikey, ContentType.TEXT_PLAIN));
+            HttpEntity jobEntities = jobEntity.build();
+
+            DefaultHttpClient httpClient = new DefaultHttpClient();
+
+            HttpPost httpPostApi = new HttpPost(urls[0]);
+            httpPostApi.setEntity(speechEntities);
+            JSONObject apiResponse = exectutePost(httpClient, httpPostApi);
+
+            String jobId = "";
+            try{jobId = apiResponse.getString("jobID");} catch(JSONException e){e.printStackTrace();};
+            Log.i("far", "Job ID: " + jobId);
+
+            HttpPost httpPostJob = new HttpPost(jobUrl+jobId);
+            httpPostJob.setEntity(jobEntities);
+            JSONObject response = exectutePost(httpClient, httpPostJob);
+
+            String speech = "";
+
+            try {
+                String actionsStr = (new JSONArray(response.getString("actions"))).getString(0);
+                JSONObject actionsArr = new JSONObject(actionsStr);
+                String resultStr = actionsArr.getString("result");
+                JSONObject resultObj = new JSONObject(resultStr);
+                JSONObject documentObj = resultObj.getJSONArray("document").getJSONObject(0);
+                speech = documentObj.getString("content");
+
+                Log.i("far", response.getString("actions"));
+                Log.i("far", "Speech: " + speech);
+            } catch (JSONException e){
+                e.printStackTrace();
+            }
+
+            MultipartEntityBuilder nameEntity = MultipartEntityBuilder.create();
+            nameEntity.addPart("text", new StringBody(speech, ContentType.TEXT_PLAIN));
+            nameEntity.addPart("entity_type", new StringBody("person_name_component_eng", ContentType.TEXT_PLAIN));
+            nameEntity.addPart("unique_entities", new StringBody("true", ContentType.TEXT_PLAIN));
+            nameEntity.addPart("apikey", new StringBody(apikey, ContentType.TEXT_PLAIN));
+            HttpEntity nameEntities = nameEntity.build();
+            HttpPost httpPostName = new HttpPost(nameUrl);
+            httpPostName.setEntity(nameEntities);
+
+            JSONObject nameResponse = exectutePost(httpClient, httpPostName);
+
+            Log.i("far", nameResponse.toString());
+            String name = "";
+            try{name = nameResponse.getJSONArray("entities").getJSONObject(0).getString("normalized_text");} catch(JSONException e){e.printStackTrace();}
+
+            Log.i("far", "Name: " + name);
+            return name;
+        }
+
+
+
+        protected void onPostExecute(String result) {
+            Log.i("far", "Downloaded " + result + " bytes");
+            currentName = result;
+            PebbleDictionary dict = new PebbleDictionary();
+            dict.addString(5, currentName);
+            PebbleKit.sendDataToPebble(getApplicationContext(), appUUID, dict);
+        }
+    }
+
+    private JSONObject exectutePost(DefaultHttpClient httpClient, HttpPost httpPost){
+        JSONObject json = null;
+        try {
+            Log.i("far", "try0");
+            HttpResponse httpResponse = httpClient.execute(httpPost);
+            Log.i("far", "try1");
+            HttpEntity httpEntity = httpResponse.getEntity();
+            Log.i("far", "try2");
+            String response = EntityUtils.toString(httpEntity);
+            Log.i("far", "try3 " + response);
+            json = new JSONObject(response);
+            Log.i("far", "try4");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return json;
+    }
 }
