@@ -73,7 +73,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
 
     /** End New **/
 
-    private static final String GALLERY_ID = "NELLIEA";
+    private static final String GALLERY_ID = "NELLIEAPP";
     private static int clickCount = 0;
     private String currentName = "";
 
@@ -194,8 +194,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
             myKairos = new Kairos();
 
             /* * * set authentication * * */
-            String app_id = "de2652f9";
-            String api_key = "c4754c1ec92893a25918db365bb82f1e";
+            String app_id = "6a6d7d29";
+            String api_key = "50bfcfa358d7505f87c02a3d22d21ab0";
             myKairos.setAuthentication(this, app_id, api_key);
 
             try {
@@ -212,10 +212,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
 
     /** New **/
     public void captureImage() {
-        searchInProgress = true;
         try {
             Bitmap image = takePicture();
-            currentName = "Acquaintance Name";
             myKairos.enroll(image, currentName, GALLERY_ID, null, null, null, listener);
         } catch (Exception e) {
             // Handle Exceptions
@@ -242,7 +240,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     }
 
     public void recallImage() {
-        searchInProgress = true;
         try {
             Bitmap image = takePicture();
             myKairos.recognize(image, GALLERY_ID, null, null, null, null, listener);
@@ -429,12 +426,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                     }
 
                     PebbleDictionary dict = new PebbleDictionary();
-                    if (!searchInProgress) {
                         dict.addString(2, "Press To Scan");
-                    }
-                    else {
-                        dict.addString(2, "Please wait");
-                    }
                     PebbleKit.sendDataToPebble(context, appUUID, dict);
 
                 }
